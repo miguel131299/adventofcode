@@ -82,12 +82,9 @@ int doMults(const char* viewBegin, const char* viewEnd) {
             ++begin;
             continue;
         }
-        
-
 
         // begin to start of first operand
         begin += 4;
-
 
         bool abort = false;
 
