@@ -21,35 +21,21 @@ struct Position {
         return this->x == other.x && this->y == other.y;
     }
 
-    void turnRight() {
-        // turn right to bottom
-        if (x == 1)
-        {
-            x = 0;
-            y = 1;
+    Position turnRight() const {
+        if (x == 1) {
+            return Position(1, 0);
+        } else if (y == 1) {
+            return Position(0, -1);
+        } else if (x == -1) {
+            return Position(-1, 0);
+        } else if (y == -1) {
+            return Position(0, 1);
         }
-
-        // turn bottom to left
-        else if (y == 1)
-        {
-            x = -1;
-            y = 0;
-        }
-
-        // turn left to top
-        else if (x == -1)
-        {
-            x = 0;
-            y = -1;
-        }
-
-        // turn top to right
-        else if (y == -1)
-        {
-            x = 1;
-            y = 0;
-        }
+        throw std::runtime_error("Invalid Position for turnRight");
     }
+    
+
+
 };
 
 namespace std {
@@ -61,29 +47,43 @@ namespace std {
     };
 }
 
-bool inBounds(const std::vector<std::string> grid, const Position& p) {
-    return p.y >= 0 && p.y < grid.size() && p.x >= 0 && p.x < grid[0].size();
+bool inBounds(const std::vector<std::string>& grid, const Position& p) {
+    return p.y >= 0 && p.y < grid.size() && p.x >= 0 && p.x < grid[p.y].size();
+}
+
+Position getNextPos(const std::vector<std::string>& lines, const Position pos, Position& dir) {
+    Position nextPos = pos + dir;
+    while (lines[nextPos.y][nextPos.x] == '#') {
+        dir = dir.turnRight();
+        nextPos = pos + dir;
+    }
+    return nextPos;
 }
 
 void movePosition(const std::vector<std::string>& lines, Position& pos, Position& dir) {
-    if (!inBounds(lines, pos))
+    if (!inBounds(lines, pos)) {
+        return;
+    }
+    pos = getNextPos(lines, pos, dir);
+}
+
+void printGrid(std::vector<std::string> lines, const Position& p, bool fast) {
+    if (!inBounds(lines, p))
     {
         return;
     }
-    
-    Position nextPos = pos + dir;
 
-    while (lines[nextPos.y][nextPos.x] == '#')
-    {
-        dir.turnRight();
-        nextPos = pos + dir;
+    lines[p.y][p.x] = fast ? 'f' : 's';
+
+    for (auto&& l: lines) {
+        std::cout << l << '\n';
     }
 
-    pos = nextPos;
+    std::cout << std::endl;
 }
 
 
-bool findCycle(const std::vector<std::string>& lines, const Position& start, const Position& dir) {
+bool findCycle(const std::vector<std::string>& lines, Position start, Position dir) {
     auto slowPos = start;
     auto slowDir = dir;
 
@@ -92,15 +92,17 @@ bool findCycle(const std::vector<std::string>& lines, const Position& start, con
     movePosition(lines, fastPos, fastDir);
 
     while (inBounds(lines, fastPos)) {
-        if (fastPos == slowPos)
+        if (fastPos == slowPos && fastDir == slowDir)
         {
             return true;
         }
 
         movePosition(lines, slowPos, slowDir);
+        // printGrid(lines, slowPos, false);
 
         movePosition(lines, fastPos, fastDir);
         movePosition(lines, fastPos, fastDir);
+        // printGrid(lines, fastPos, true);
     }
 
     return false;
@@ -133,7 +135,7 @@ std::pair<Position, Position> getCursor(const std::vector<std::string>& lines) {
 
 int main(int argc, char const *argv[])
 {
-    std::ifstream file("smallinput.txt");
+    std::ifstream file("input.txt");
 
     if (!file.is_open())
     {
@@ -148,39 +150,31 @@ int main(int argc, char const *argv[])
     }
     file.close();
 
-    auto p = getCursor(lines);
-    auto cursorPos = p.first;
-    auto cursorDir = p.second;
+    auto s = getCursor(lines);
+    auto cursorPos = s.first;
+    auto cursorDir = s.second;
     std::unordered_set<Position> visited;
 
     // get positions we visit
+    int res = 0;
     while (inBounds(lines, cursorPos)) {
         visited.insert(cursorPos);
-        
-        Position nextPos = cursorPos + cursorDir;
-
-        while (lines[nextPos.y][nextPos.x] == '#')
-        {
-            cursorDir.turnRight();
-            nextPos = cursorPos + cursorDir;
-        }
+        Position nextPos = getNextPos(lines, cursorPos, cursorDir);
 
         cursorPos = nextPos;
     }
-
-    // remove starting position
-    visited.erase(p.first);
-
-    int res = 0;
-    for (auto &&pos : visited)
-    {
-        lines[pos.y][pos.x] = '#';
-        if (findCycle(lines, pos, p.second))
-        {
-            ++res;
-        }    
-    }
     
+    for (auto && p: visited) {
+        if (lines[p.y][p.x] != '.')
+            continue;
+
+        lines[p.y][p.x] = '#';
+        if (findCycle(lines, s.first, s.second))
+            res++;
+        lines[p.y][p.x] = '.';
+        
+    }
+
     std::cout << res << std::endl;
     
     return 0;
